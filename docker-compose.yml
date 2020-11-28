@@ -1,0 +1,63 @@
+---
+version: "3.3"
+
+networks:
+  frontend:
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+services:
+
+  wireguard:
+    image: ghcr.io/linuxserver/wireguard
+    container_name: wireguard
+    networks:
+      frontend:
+        ipv4_address: 172.20.0.2
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    depends_on:
+      - pihole
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - SERVERURL=<public url, e.g. vpn.me.com>
+      - SERVERPORT=51820
+      - PEERS=<peer 1 name>,<peer2name>,....
+      - PEERDNS=172.20.0.3
+      - INTERNAL_SUBNET=10.13.13.0
+      - ALLOWEDIPS=0.0.0.0/0
+    volumes:
+      - ./config:/config
+      - ./modules:/lib/modules
+    ports:
+      - 51820:51820/udp
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+    restart: unless-stopped
+    
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"
+      - "80:80/tcp"
+      - "443:443/tcp"
+    networks:
+      frontend:
+        ipv4_address: 172.20.0.3
+    environment:
+      TZ: 'America/New_York'
+      WEBPASSWORD: 'pihole'
+    # Volumes store your data between container upgrades
+    volumes:
+      - './etc-pihole/:/etc/pihole/'
+      - './etc-dnsmasq.d/:/etc/dnsmasq.d/'
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
